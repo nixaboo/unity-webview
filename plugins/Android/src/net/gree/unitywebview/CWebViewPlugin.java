@@ -33,7 +33,6 @@ import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.net.Uri;
-import android.net.wifi.aware.PublishConfig;
 import android.os.Build;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -42,7 +41,6 @@ import android.util.Log;
 import android.util.Pair;
 import android.view.Gravity;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewGroup.LayoutParams;
 import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.webkit.GeolocationPermissions.Callback;
@@ -68,7 +66,6 @@ import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
-import java.security.KeyStore;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -91,11 +88,10 @@ class CWebViewPluginInterface {
         mGameObject = gameObject;
     }
 
-    @JavascriptInterface
-    public void call(final String data) {
-        //Log.w("ALON", "RECEIVED: --> " + data);
 
-        call("CallFromJS", data);
+    @JavascriptInterface
+    public void call(final String message) {
+        call("CallFromJS", message);
     }
 
     @JavascriptInterface
@@ -116,16 +112,12 @@ class CWebViewPluginInterface {
             };
         });
     }
-
-    public void call(final String method, final String data) {
+	
+    public void call(final String method, final String message) {
         final Activity a = UnityPlayer.currentActivity;
         a.runOnUiThread(new Runnable() {public void run() {
-            //Log.w("ALON", "RECEIVED IN UI THREAD: '" + data + "'   --> " + data);
-
             if (mPlugin.IsInitialized()) {
-                //Log.w("ALON", "CALL-> RESUME unity");
-                CUnityPlayerActivity.GlobalUnityActivity.ResumeUnityPlayer();
-                UnityPlayer.UnitySendMessage(mGameObject, method, data);
+                UnityPlayer.UnitySendMessage(mGameObject, method, message);
             }
         }});
     }
@@ -164,8 +156,7 @@ public class CWebViewPlugin extends Fragment {
     private static long instanceCount;
     private long mInstanceId;
     private boolean mPaused;
-    public boolean mIsPauseDueToUnityPauseCall = false;
-
+	public boolean mIsPauseDueToUnityPauseCall = false;
     private List<Pair<String, CWebViewPlugin>> mTransactions;
 
     private String mBasicAuthUserName;
@@ -281,7 +272,7 @@ public class CWebViewPlugin extends Fragment {
         return mWebView != null;
     }
 
-    public void PauseUnityInternal() {
+	public void PauseUnityInternal() {
         //Log.w("ALON", "PAUSING UNITY");
         final Activity a = UnityPlayer.currentActivity;
 
@@ -308,8 +299,8 @@ public class CWebViewPlugin extends Fragment {
         //Log.w("ALON", "EXTERNAL -> RequestPauseUnity");
         PauseUnityInternal();
     }
-
-    public void Init(final String gameObject, final boolean transparent, final boolean zoom, final String ua) {
+	
+    public void Init(final String gameObject, final boolean transparent, final boolean zoom, final int androidForceDarkMode, final String ua) {
         final CWebViewPlugin self = this;
         final Activity a = UnityPlayer.currentActivity;
         instanceCount++;
@@ -327,10 +318,10 @@ public class CWebViewPlugin extends Fragment {
                 mTransactions.add(Pair.create("add", self));
             } else {
                 a
-                        .getFragmentManager()
-                        .beginTransaction()
-                        .add(0, self, "CWebViewPlugin" + mInstanceId)
-                        .commit();
+                    .getFragmentManager()
+                    .beginTransaction()
+                    .add(0, self, "CWebViewPlugin" + mInstanceId)
+                    .commit();
             }
 
             mAlertDialogEnabled = true;
@@ -357,13 +348,6 @@ public class CWebViewPlugin extends Fragment {
             //     }
             // });
             webView.setWebChromeClient(new WebChromeClient() {
-
-                @Override
-                public boolean onConsoleMessage(android.webkit.ConsoleMessage cm) {
-                         Log.d("Webview", cm.message());
-                         return true;
-                     }
-
                 // cf. https://stackoverflow.com/questions/40659198/how-to-access-the-camera-from-within-a-webview/47525818#47525818
                 // cf. https://github.com/googlesamples/android-PermissionRequest/blob/eff1d21f0b9c91d67c7f2a2303b591447e61e942/Application/src/main/java/com/example/android/permissionrequest/PermissionRequestFragment.java#L148-L161
                 @Override
@@ -435,7 +419,7 @@ public class CWebViewPlugin extends Fragment {
                         result.cancel();
                         return true;
                     }
-                    return super.onJsPrompt(view, url, message, defaultValue, result);
+                   return super.onJsPrompt(view, url, message, defaultValue, result);
                 }
 
                 @Override
@@ -486,15 +470,6 @@ public class CWebViewPlugin extends Fragment {
 
             mWebViewPlugin = new CWebViewPluginInterface(self, gameObject);
             webView.setWebViewClient(new WebViewClient() {
-
-                @Override
-                public void onScaleChanged(WebView view, float oldScale,
-                                           float newScale) {
-                    Log.e("ALON", "SCALE: " + newScale);
-                    view.setScaleX(1.0f);
-                    view.setScaleY(1.0f);
-                }
-
                 @Override
                 public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
                     webView.loadUrl("about:blank");
@@ -593,9 +568,9 @@ public class CWebViewPlugin extends Fragment {
                         }
 
                         return new WebResourceResponse(
-                                urlCon.getContentType().split(";", 2)[0],
-                                urlCon.getContentEncoding(),
-                                urlCon.getInputStream()
+                            urlCon.getContentType().split(";", 2)[0],
+                            urlCon.getContentEncoding(),
+                            urlCon.getInputStream()
                         );
 
                     } catch (Exception e) {
@@ -624,7 +599,7 @@ public class CWebViewPlugin extends Fragment {
                         mWebViewPlugin.call("CallOnHooked", url);
                         return true;
                     } else if (!url.toLowerCase().endsWith(".pdf")
-                            && (url.startsWith("http://")
+                        && (url.startsWith("http://")
                             || url.startsWith("https://")
                             || url.startsWith("file://")
                             || url.startsWith("javascript:"))) {
@@ -648,13 +623,13 @@ public class CWebViewPlugin extends Fragment {
                 webSettings.setUserAgentString(ua);
             }
             mWebViewUA = webSettings.getUserAgentString();
-            //if (zoom) {
-                //webSettings.setSupportZoom(true);
-                //webSettings.setBuiltInZoomControls(true);
-            //} else {
+            if (zoom) {
+                webSettings.setSupportZoom(true);
+                webSettings.setBuiltInZoomControls(true);
+            } else {
                 webSettings.setSupportZoom(false);
                 webSettings.setBuiltInZoomControls(false);
-            //}
+            }
             webSettings.setDisplayZoomControls(false);
             webSettings.setLoadWithOverviewMode(true);
             webSettings.setUseWideViewPort(true);
@@ -676,14 +651,26 @@ public class CWebViewPlugin extends Fragment {
 
             // cf. https://forum.unity.com/threads/unity-ios-dark-mode.805344/#post-6476051
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                Configuration configuration = UnityPlayer.currentActivity.getResources().getConfiguration();
-                switch (configuration.uiMode & Configuration.UI_MODE_NIGHT_MASK) {
-                    case Configuration.UI_MODE_NIGHT_NO:
-                        webSettings.setForceDark(WebSettings.FORCE_DARK_OFF);
-                        break;
-                    case Configuration.UI_MODE_NIGHT_YES:
-                        webSettings.setForceDark(WebSettings.FORCE_DARK_ON);
-                        break;
+                switch (androidForceDarkMode) {
+                case 0:
+                    {
+                        Configuration configuration = UnityPlayer.currentActivity.getResources().getConfiguration();
+                        switch (configuration.uiMode & Configuration.UI_MODE_NIGHT_MASK) {
+                        case Configuration.UI_MODE_NIGHT_NO:
+                            webSettings.setForceDark(WebSettings.FORCE_DARK_OFF);
+                            break;
+                        case Configuration.UI_MODE_NIGHT_YES:
+                            webSettings.setForceDark(WebSettings.FORCE_DARK_ON);
+                            break;
+                        }
+                    }
+                    break;
+                case 1:
+                    webSettings.setForceDark(WebSettings.FORCE_DARK_OFF);
+                    break;
+                case 2:
+                    webSettings.setForceDark(WebSettings.FORCE_DARK_ON);
+                    break;
                 }
             }
 
@@ -691,38 +678,22 @@ public class CWebViewPlugin extends Fragment {
                 webView.setBackgroundColor(0x00000000);
             }
 
-            webView.setInitialScale(1);
-            webView.getSettings().setLoadWithOverviewMode(true);
-            webView.getSettings().setUseWideViewPort(true);
-            webView.setScrollBarStyle(WebView.SCROLLBARS_OUTSIDE_OVERLAY);
-            webView.setScrollbarFadingEnabled(false);
-            webView.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            //CUnityPlayerActivity.GlobalUnityPlayerInstance.addViewToPlayer(webView, false);
-
-            webSettings.setSupportZoom(false);
-            webSettings.setBuiltInZoomControls(false);
-            webSettings.setDefaultZoom(WebSettings.ZoomDensity.FAR);
-
-            //PauseUnityInternal();
-
-            //webView.getSettings().setJavaScriptEnabled(true);
-
             if (layout == null || layout.getParent() != a.findViewById(android.R.id.content)) {
                 layout = new FrameLayout(a);
                 a.addContentView(
-                        layout,
-                        new LayoutParams(
-                                LayoutParams.MATCH_PARENT,
-                                LayoutParams.MATCH_PARENT));
+                    layout,
+                    new LayoutParams(
+                        LayoutParams.MATCH_PARENT,
+                        LayoutParams.MATCH_PARENT));
                 layout.setFocusable(true);
                 layout.setFocusableInTouchMode(true);
             }
             layout.addView(
-                    webView,
-                    new FrameLayout.LayoutParams(
-                            LayoutParams.MATCH_PARENT,
-                            LayoutParams.MATCH_PARENT,
-                            Gravity.NO_GRAVITY));
+                webView,
+                new FrameLayout.LayoutParams(
+                    LayoutParams.MATCH_PARENT,
+                    LayoutParams.MATCH_PARENT,
+                    Gravity.NO_GRAVITY));
             mWebView = webView;
         }});
 
@@ -804,9 +775,9 @@ public class CWebViewPlugin extends Fragment {
         String imageFileName = "JPEG_" + timeStamp + "_";
         File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
         File imageFile = File.createTempFile(imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
+                                             ".jpg",         /* suffix */
+                                             storageDir      /* directory */
+                                             );
         return imageFile;
     }
 
@@ -839,10 +810,10 @@ public class CWebViewPlugin extends Fragment {
                 mTransactions.add(Pair.create("remove", self));
             } else {
                 a
-                        .getFragmentManager()
-                        .beginTransaction()
-                        .remove(self)
-                        .commit();
+                    .getFragmentManager()
+                    .beginTransaction()
+                    .remove(self)
+                    .commit();
             }
 
         }});
@@ -892,8 +863,6 @@ public class CWebViewPlugin extends Fragment {
     }
 
     public void EvaluateJS(final String js) {
-        Log.d("ALON", "Evaluate JS called with: " + js);
-
         final Activity a = UnityPlayer.currentActivity;
         a.runOnUiThread(new Runnable() {public void run() {
             if (mWebView == null) {
@@ -939,7 +908,7 @@ public class CWebViewPlugin extends Fragment {
 
     public void SetMargins(int left, int top, int right, int bottom) {
         final FrameLayout.LayoutParams params
-                = new FrameLayout.LayoutParams(
+            = new FrameLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT,
                 Gravity.NO_GRAVITY);
@@ -961,7 +930,7 @@ public class CWebViewPlugin extends Fragment {
             }
             if (visibility) {
                 mWebView.setVisibility(View.VISIBLE);
-                //layout.requestFocus();
+                layout.requestFocus();
                 mWebView.requestFocus();
             } else {
                 mWebView.setVisibility(View.GONE);
@@ -978,16 +947,14 @@ public class CWebViewPlugin extends Fragment {
 
     // cf. https://stackoverflow.com/questions/31788748/webview-youtube-videos-playing-in-background-on-rotation-and-minimise/31789193#31789193
     public void OnApplicationPause(boolean paused) {
-        //Log.w("ALON", "WebView OnPaused: " + paused);
-
-        mPaused = paused;
+        mPaused = paused;		
         if(mIsPauseDueToUnityPauseCall) {
             //Log.w("ALON", "WebView OnPaused: OVERRIDE: false");
             mPaused = false;
             mIsPauseDueToUnityPauseCall = false;
             return;
         }
-
+		
         final Activity a = UnityPlayer.currentActivity;
         a.runOnUiThread(new Runnable() {public void run() {
             if (!mPaused) {
@@ -995,20 +962,20 @@ public class CWebViewPlugin extends Fragment {
                     for (Pair<String, CWebViewPlugin> pair : mTransactions) {
                         CWebViewPlugin self = pair.second;
                         switch (pair.first) {
-                            case "add":
-                                a
-                                        .getFragmentManager()
-                                        .beginTransaction()
-                                        .add(0, self, "CWebViewPlugin" + mInstanceId)
-                                        .commit();
-                                break;
-                            case "remove":
-                                a
-                                        .getFragmentManager()
-                                        .beginTransaction()
-                                        .remove(self)
-                                        .commit();
-                                break;
+                        case "add":
+                            a
+                                .getFragmentManager()
+                                .beginTransaction()
+                                .add(0, self, "CWebViewPlugin" + mInstanceId)
+                                .commit();
+                            break;
+                        case "remove":
+                            a
+                                .getFragmentManager()
+                                .beginTransaction()
+                                .remove(self)
+                                .commit();
+                            break;
                         }
                     }
                     mTransactions.clear();
@@ -1018,6 +985,7 @@ public class CWebViewPlugin extends Fragment {
                 return;
             }
             if (mPaused) {
+                mWebView.onPause();
                 if (mWebView.getVisibility() == View.VISIBLE) {
                     // cf. https://qiita.com/nbhd/items/d31711faa8852143f3a4
                     mWebView.pauseTimers();
@@ -1073,17 +1041,17 @@ public class CWebViewPlugin extends Fragment {
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
         {
-            CookieManager.getInstance().removeAllCookies(null);
-            CookieManager.getInstance().flush();
+           CookieManager.getInstance().removeAllCookies(null);
+           CookieManager.getInstance().flush();
         } else {
-            final Activity a = UnityPlayer.currentActivity;
-            CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(a);
-            cookieSyncManager.startSync();
-            CookieManager cookieManager = CookieManager.getInstance();
-            cookieManager.removeAllCookie();
-            cookieManager.removeSessionCookie();
-            cookieSyncManager.stopSync();
-            cookieSyncManager.sync();
+           final Activity a = UnityPlayer.currentActivity;
+           CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(a);
+           cookieSyncManager.startSync();
+           CookieManager cookieManager = CookieManager.getInstance();
+           cookieManager.removeAllCookie();
+           cookieManager.removeSessionCookie();
+           cookieSyncManager.stopSync();
+           cookieSyncManager.sync();
         }
     }
 
@@ -1091,13 +1059,13 @@ public class CWebViewPlugin extends Fragment {
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
         {
-            CookieManager.getInstance().flush();
+           CookieManager.getInstance().flush();
         } else {
-            final Activity a = UnityPlayer.currentActivity;
-            CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(a);
-            cookieSyncManager.startSync();
-            cookieSyncManager.stopSync();
-            cookieSyncManager.sync();
+           final Activity a = UnityPlayer.currentActivity;
+           CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(a);
+           cookieSyncManager.startSync();
+           cookieSyncManager.stopSync();
+           cookieSyncManager.sync();
         }
     }
 
@@ -1111,23 +1079,23 @@ public class CWebViewPlugin extends Fragment {
     {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
         {
-            CookieManager cookieManager = CookieManager.getInstance();
-            for (String header : setCookieHeaders)
-            {
-                cookieManager.setCookie(url, header);
-            }
-            cookieManager.flush();
+           CookieManager cookieManager = CookieManager.getInstance();
+           for (String header : setCookieHeaders)
+           {
+              cookieManager.setCookie(url, header);
+           }
+           cookieManager.flush();
         } else {
-            final Activity a = UnityPlayer.currentActivity;
-            CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(a);
-            cookieSyncManager.startSync();
-            CookieManager cookieManager = CookieManager.getInstance();
-            for (String header : setCookieHeaders)
-            {
-                cookieManager.setCookie(url, header);
-            }
-            cookieSyncManager.stopSync();
-            cookieSyncManager.sync();
+           final Activity a = UnityPlayer.currentActivity;
+           CookieSyncManager cookieSyncManager = CookieSyncManager.createInstance(a);
+           cookieSyncManager.startSync();
+           CookieManager cookieManager = CookieManager.getInstance();
+           for (String header : setCookieHeaders)
+           {
+              cookieManager.setCookie(url, header);
+           }
+           cookieSyncManager.stopSync();
+           cookieSyncManager.sync();
         }
     }
 
