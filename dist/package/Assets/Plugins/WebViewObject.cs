@@ -87,6 +87,21 @@ public class WebViewObject : MonoBehaviour
     int mWindowVisibleDisplayFrameHeight;
     float mResumedTimestamp;
     
+	//Added to plugin in FORK 
+	public void Android_RequestUnityPause()
+    {
+#if UNITY_ANDROID
+        webView.Call("RequestPauseUnity");
+#endif 
+    }
+	
+	public void SendMessageToWebView(string msg)
+    {
+		string escaped = Uri.EscapeUriString(msg);
+        this.EvaluateJS($"window.onMessageFromUnity(\"{escaped}\")");        
+    }
+	//END ADDITIONS 
+	
     void OnApplicationPause(bool paused)
     {
         if (webView == null)
