@@ -1,0 +1,18 @@
+(This setup file is for windows, I've run it and commited the changes)
+
+* This is a custom unity webview fork to allow pausing and resuming unity while the WebView is running.
+* Setup
+		
+	Goto plugins\Android and run install.bat (Mac will need to fix the install.sh file to do the same actions)
+	This batch sets up the android project (copies files into src)
+	
+	NOTE: This file copies the classes.jar file that is located inside the unity installation. I've kept a local copy here.
+	It's part of Android java-runtime. 
+	
+	NOTE: local.properties needs to be configured w/ path to Android SDK used by Unity
+	(See git)
+
+
+
+####
+After I ran it I modified the 

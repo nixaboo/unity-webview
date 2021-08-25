@@ -1,11 +1,12 @@
 #if UNITY_EDITOR
 using System.Collections;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Xml;
+using System;
 using UnityEditor.Android;
 using UnityEditor.Callbacks;
-using UnityEditor.iOS.Xcode;
 using UnityEditor;
 using UnityEngine;
 
@@ -93,14 +94,46 @@ public class UnityWebViewPostprocessBuild
 #endif
         if (buildTarget == BuildTarget.iOS) {
             string projPath = path + "/Unity-iPhone.xcodeproj/project.pbxproj";
-            PBXProject proj = new PBXProject();
-            proj.ReadFromString(File.ReadAllText(projPath));
+            var type = Type.GetType("UnityEditor.iOS.Xcode.PBXProject, UnityEditor.iOS.Extensions.Xcode");
+            if (type == null)
+            {
+                Debug.LogError("unitywebview: failed to get PBXProject. please install iOS build support.");
+                return;
+            }
+            var src = File.ReadAllText(projPath);
+            //dynamic proj = type.GetConstructor(Type.EmptyTypes).Invoke(null);
+            var proj = type.GetConstructor(Type.EmptyTypes).Invoke(null);
+            //proj.ReadFromString(src);
+            {
+                var method = type.GetMethod("ReadFromString");
+                method.Invoke(proj, new object[]{src});
+            }
+            var target = "";
 #if UNITY_2019_3_OR_NEWER
-            proj.AddFrameworkToProject(proj.GetUnityFrameworkTargetGuid(), "WebKit.framework", false);
+            //target = proj.GetUnityFrameworkTargetGuid();
+            {
+                var method = type.GetMethod("GetUnityFrameworkTargetGuid");
+                target = (string)method.Invoke(proj, null);
+            }
 #else
-            proj.AddFrameworkToProject(proj.TargetGuidByName("Unity-iPhone"), "WebKit.framework", false);
+            //target = proj.TargetGuidByName("Unity-iPhone");
+            {
+                var method = type.GetMethod("TargetGuidByName");
+                target = (string)method.Invoke(proj, new object[]{"Unity-iPhone"});
+            }
 #endif
-            File.WriteAllText(projPath, proj.WriteToString());
+            //proj.AddFrameworkToProject(target, "WebKit.framework", false);
+            {
+                var method = type.GetMethod("AddFrameworkToProject");
+                method.Invoke(proj, new object[]{target, "WebKit.framework", false});
+            }
+            var dst = "";
+            //dst = proj.WriteToString();
+            {
+                var method = type.GetMethod("WriteToString");
+                dst = (string)method.Invoke(proj, null);
+            }
+            File.WriteAllText(projPath, dst);
         }
     }
 }
@@ -197,6 +230,13 @@ internal class AndroidManifest : AndroidXmlDocument {
         if (SelectNodes("/manifest/uses-feature[@android:name='android.hardware.camera']", nsMgr).Count == 0) {
             var elem = CreateElement("uses-feature");
             elem.Attributes.Append(CreateAndroidAttribute("name", "android.hardware.camera"));
+            ManifestElement.AppendChild(elem);
+            changed = true;
+        }
+        // cf. https://developer.android.com/training/data-storage/shared/media#media-location-permission
+        if (SelectNodes("/manifest/uses-permission[@android:name='android.permission.ACCESS_MEDIA_LOCATION']", nsMgr).Count == 0) {
+            var elem = CreateElement("uses-permission");
+            elem.Attributes.Append(CreateAndroidAttribute("name", "android.permission.ACCESS_MEDIA_LOCATION"));
             ManifestElement.AppendChild(elem);
             changed = true;
         }

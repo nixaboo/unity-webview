@@ -100,6 +100,8 @@ public class CWebViewPlugin {
     private boolean canGoBack;
     private boolean canGoForward;
     private boolean mAlertDialogEnabled;
+    private boolean mAllowVideoCapture;
+    private boolean mAllowAudioCapture;
     private Hashtable<String, String> mCustomHeaders;
     private String mWebViewUA;
     private Pattern mAllowRegex;
@@ -148,6 +150,8 @@ public class CWebViewPlugin {
                 return;
             }
             mAlertDialogEnabled = true;
+            mAllowVideoCapture = false;
+            mAllowAudioCapture = false;
             mCustomHeaders = new Hashtable<String, String>();
 
             final WebView webView = new WebView(a);
@@ -177,7 +181,8 @@ public class CWebViewPlugin {
                 public void onPermissionRequest(final PermissionRequest request) {
                     final String[] requestedResources = request.getResources();
                     for (String r : requestedResources) {
-                        if (r.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE) || r.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                        if ((r.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE) && mAllowVideoCapture)
+                            || (r.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE) && mAllowAudioCapture)) {
                             request.grant(requestedResources);
                             // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             //     a.runOnUiThread(new Runnable() {public void run() {
@@ -382,10 +387,11 @@ public class CWebViewPlugin {
                         mWebViewPlugin.call("CallOnHooked", url);
                         return true;
                     } else if (!url.toLowerCase().endsWith(".pdf")
-                        && (url.startsWith("http://")
-                            || url.startsWith("https://")
-                            || url.startsWith("file://")
-                            || url.startsWith("javascript:"))) {
+                               && !url.startsWith("https://maps.app.goo.gl")
+                               && (url.startsWith("http://")
+                                   || url.startsWith("https://")
+                                   || url.startsWith("file://")
+                                   || url.startsWith("javascript:"))) {
                         mWebViewPlugin.call("CallOnStarted", url);
                         // Let webview handle the URL
                         return false;
@@ -497,9 +503,18 @@ public class CWebViewPlugin {
                 } catch (java.lang.NoSuchMethodError err) {
                     h = display.getHeight();
                 }
-                int heightDiff = activityRootView.getRootView().getHeight() - (r.bottom - r.top);
-                //System.out.print(String.format("[NativeWebview] %d, %d\n", h, heightDiff));
-                if (heightDiff > h / 3) { // assume that this means that the keyboard is on
+
+                View rootView = activityRootView.getRootView();
+                int bottomPadding = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                    Point realSize = new Point();
+                    display.getRealSize(realSize); // this method was added at JELLY_BEAN_MR1
+                    int[] location = new int[2];
+                    rootView.getLocationOnScreen(location);
+                    bottomPadding = realSize.y - (location[1] + rootView.getHeight());
+                }
+                int heightDiff = rootView.getHeight() - (r.bottom - r.top);
+                if (heightDiff > 0 && (heightDiff + bottomPadding) > (h + bottomPadding) / 3) { // assume that this means that the keyboard is on
                     UnityPlayer.UnitySendMessage(gameObject, "SetKeyboardVisible", "true");
                 } else {
                     UnityPlayer.UnitySendMessage(gameObject, "SetKeyboardVisible", "false");
@@ -658,6 +673,20 @@ public class CWebViewPlugin {
         }});
     }
 
+    public void SetCameraAccess(final boolean allowed) {
+        final Activity a = UnityPlayer.currentActivity;
+        a.runOnUiThread(new Runnable() {public void run() {
+            mAllowVideoCapture = allowed;
+        }});
+    }
+
+    public void SetMicrophoneAccess(final boolean allowed) {
+        final Activity a = UnityPlayer.currentActivity;
+        a.runOnUiThread(new Runnable() {public void run() {
+            mAllowAudioCapture = allowed;
+        }});
+    }
+
     // cf. https://stackoverflow.com/questions/31788748/webview-youtube-videos-playing-in-background-on-rotation-and-minimise/31789193#31789193
     public void OnApplicationPause(final boolean paused) {
         final Activity a = UnityPlayer.currentActivity;
@@ -794,6 +823,17 @@ public class CWebViewPlugin {
                 return;
             }
             mWebView.clearCache(includeDiskFiles);
+        }});
+    }
+
+    public void SetTextZoom(final int textZoom)
+    {
+        final Activity a = UnityPlayer.currentActivity;
+        a.runOnUiThread(new Runnable() {public void run() {
+            if (mWebView == null) {
+                return;
+            }
+            mWebView.getSettings().setTextZoom(textZoom);
         }});
     }
 }

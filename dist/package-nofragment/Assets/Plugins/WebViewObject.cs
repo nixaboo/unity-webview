@@ -99,16 +99,6 @@ public class WebViewObject : MonoBehaviour
         webView.Call("OnApplicationPause", paused);
     }
 
-    void Awake()
-    {
-        alertDialogEnabled = true;
-        scrollBounceEnabled = true;
-        mMarginLeftComputed = -9999;
-        mMarginTopComputed = -9999;
-        mMarginRightComputed = -9999;
-        mMarginBottomComputed = -9999;
-    }
-
     void Update()
     {
         if (webView == null)
@@ -125,6 +115,10 @@ public class WebViewObject : MonoBehaviour
     {
         bool isKeyboardVisible0 = mIsKeyboardVisible;
         mIsKeyboardVisible = (pIsVisible == "true");
+        if (!Screen.fullScreen)
+        {
+            return;
+        }
         if (mIsKeyboardVisible != isKeyboardVisible0 || mIsKeyboardVisible)
         {
             SetMargins(mMarginLeft, mMarginTop, mMarginRight, mMarginBottom, mMarginRelative);
@@ -133,7 +127,7 @@ public class WebViewObject : MonoBehaviour
     
     public int AdjustBottomMargin(int bottom)
     {
-        if (!mIsKeyboardVisible)
+        if (!mIsKeyboardVisible || !Screen.fullScreen)
         {
             return bottom;
         }
@@ -155,6 +149,16 @@ public class WebViewObject : MonoBehaviour
 #else
     IntPtr webView;
 #endif
+
+    void Awake()
+    {
+        alertDialogEnabled = true;
+        scrollBounceEnabled = true;
+        mMarginLeftComputed = -9999;
+        mMarginTopComputed = -9999;
+        mMarginRightComputed = -9999;
+        mMarginBottomComputed = -9999;
+    }
 
     public bool IsKeyboardVisible
     {
@@ -661,6 +665,34 @@ public class WebViewObject : MonoBehaviour
         return scrollBounceEnabled;
     }
 
+    public void SetCameraAccess(bool allowed)
+    {
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+        // TODO: UNSUPPORTED
+#elif UNITY_IPHONE
+        // TODO: UNSUPPORTED
+#elif UNITY_ANDROID
+        // TODO: UNSUPPORTED
+        webView.Call("SetCameraAccess", allowed);
+#else
+        // TODO: UNSUPPORTED
+#endif
+    }
+
+    public void SetMicrophoneAccess(bool allowed)
+    {
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+        // TODO: UNSUPPORTED
+#elif UNITY_IPHONE
+        // TODO: UNSUPPORTED
+#elif UNITY_ANDROID
+        // TODO: UNSUPPORTED
+        webView.Call("SetMicrophoneAccess", allowed);
+#else
+        // TODO: UNSUPPORTED
+#endif
+    }
+
     public bool SetURLPattern(string allowPattern, string denyPattern, string hookPattern)
     {
 #if UNITY_WEBPLAYER || UNITY_WEBGL
@@ -1078,6 +1110,21 @@ public class WebViewObject : MonoBehaviour
 #endif
     }
 
+
+    public void SetTextZoom(int textZoom)
+    {
+#if UNITY_WEBPLAYER || UNITY_WEBGL
+        //TODO: UNSUPPORTED
+#elif UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN || UNITY_EDITOR_LINUX
+        //TODO: UNSUPPORTED
+#elif UNITY_IPHONE && !UNITY_EDITOR
+        //TODO: UNSUPPORTED
+#elif UNITY_ANDROID && !UNITY_EDITOR
+        if (webView == null)
+            return;
+        webView.Call("SetTextZoom", textZoom);
+#endif
+    }
 
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
     void OnApplicationFocus(bool focus)

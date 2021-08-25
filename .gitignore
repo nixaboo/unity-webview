@@ -9,3 +9,5 @@ Temp
 !**/*.xcworkspace/contents.xcworkspacedata
 /plugins/Android/.gradle
 /plugins/Android/.idea
+/.idea
+/plugins/Android/gradle_build/build

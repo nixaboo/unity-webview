@@ -125,6 +125,10 @@ public class SampleWebView : MonoBehaviour
         // Added alertDialogEnabled flag to enable/disable alert/confirm/prompt dialogs. by KojiNakamaru · Pull Request #512 · gree/unity-webview
         //webViewObject.SetAlertDialogEnabled(false);
 
+        // cf. https://github.com/gree/unity-webview/pull/728
+        //webViewObject.SetCameraAccess(true);
+        //webViewObject.SetMicrophoneAccess(true);
+
         // cf. https://github.com/gree/unity-webview/pull/550
         // introduced SetURLPattern(..., hookPattern). by KojiNakamaru · Pull Request #550 · gree/unity-webview
         //webViewObject.SetURLPattern("", "^https://.*youtube.com", "^https://.*google.com");
@@ -134,6 +138,7 @@ public class SampleWebView : MonoBehaviour
         //webViewObject.SetBasicAuthInfo("id", "password");
 
         webViewObject.SetMargins(5, 100, 5, Screen.height / 4);
+        webViewObject.SetTextZoom(100);  // android only. cf. https://stackoverflow.com/questions/21647641/android-webview-set-font-size-system-default/47017410#47017410
         webViewObject.SetVisibility(true);
 
 #if !UNITY_WEBPLAYER && !UNITY_WEBGL
