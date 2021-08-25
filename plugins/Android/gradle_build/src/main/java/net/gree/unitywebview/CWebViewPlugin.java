@@ -125,12 +125,6 @@ class CWebViewPluginInterface {
 
 public class CWebViewPlugin extends Fragment {
 
-    private static String[] PERMISSIONS_STORAGE = {
-            Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE,
-            Manifest.permission.CAMERA
-    };
-
     private static final int REQUEST_CODE = 100001;
 
     private static FrameLayout layout = null;
@@ -142,6 +136,8 @@ public class CWebViewPlugin extends Fragment {
     private boolean canGoBack;
     private boolean canGoForward;
     private boolean mAlertDialogEnabled;
+    private boolean mAllowVideoCapture;
+    private boolean mAllowAudioCapture;
     private Hashtable<String, String> mCustomHeaders;
     private String mWebViewUA;
     private Pattern mAllowRegex;
@@ -251,14 +247,44 @@ public class CWebViewPlugin extends Fragment {
     }
 
     public boolean verifyStoragePermissions(final Activity activity) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             PackageManager pm = activity.getPackageManager();
             int hasPerm1 = pm.checkPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE, activity.getPackageName());
             int hasPerm2 = pm.checkPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE, activity.getPackageName());
             int hasPerm3 = pm.checkPermission(android.Manifest.permission.CAMERA, activity.getPackageName());
-            if (hasPerm1 != PackageManager.PERMISSION_GRANTED || hasPerm2 != PackageManager.PERMISSION_GRANTED || hasPerm3 != PackageManager.PERMISSION_GRANTED) {
+            // cf. https://developer.android.com/training/data-storage/shared/media#media-location-permission
+            int hasPerm4 = pm.checkPermission(android.Manifest.permission.ACCESS_MEDIA_LOCATION, activity.getPackageName());
+            if (hasPerm1 != PackageManager.PERMISSION_GRANTED
+                || hasPerm2 != PackageManager.PERMISSION_GRANTED
+                || hasPerm3 != PackageManager.PERMISSION_GRANTED
+                || hasPerm4 != PackageManager.PERMISSION_GRANTED) {
                 activity.runOnUiThread(new Runnable() {public void run() {
-                    requestPermissions(PERMISSIONS_STORAGE, REQUEST_CODE);
+                    String[] PERMISSIONS = {
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.CAMERA,
+                        Manifest.permission.ACCESS_MEDIA_LOCATION
+                    };
+                    requestPermissions(PERMISSIONS, REQUEST_CODE);
+                }});
+                return false;
+            }
+            return true;
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PackageManager pm = activity.getPackageManager();
+            int hasPerm1 = pm.checkPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE, activity.getPackageName());
+            int hasPerm2 = pm.checkPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE, activity.getPackageName());
+            int hasPerm3 = pm.checkPermission(android.Manifest.permission.CAMERA, activity.getPackageName());
+            if (hasPerm1 != PackageManager.PERMISSION_GRANTED
+                || hasPerm2 != PackageManager.PERMISSION_GRANTED
+                || hasPerm3 != PackageManager.PERMISSION_GRANTED) {
+                activity.runOnUiThread(new Runnable() {public void run() {
+                    String[] PERMISSIONS = {
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                        Manifest.permission.CAMERA
+                    };
+                    requestPermissions(PERMISSIONS, REQUEST_CODE);
                 }});
                 return false;
             }
@@ -325,6 +351,8 @@ public class CWebViewPlugin extends Fragment {
             }
 
             mAlertDialogEnabled = true;
+            mAllowVideoCapture = false;
+            mAllowAudioCapture = false;
             mCustomHeaders = new Hashtable<String, String>();
 
             final WebView webView = new WebView(a);
@@ -354,7 +382,8 @@ public class CWebViewPlugin extends Fragment {
                 public void onPermissionRequest(final PermissionRequest request) {
                     final String[] requestedResources = request.getResources();
                     for (String r : requestedResources) {
-                        if (r.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE) || r.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) {
+                        if ((r.equals(PermissionRequest.RESOURCE_VIDEO_CAPTURE) && mAllowVideoCapture)
+                            || (r.equals(PermissionRequest.RESOURCE_AUDIO_CAPTURE) && mAllowAudioCapture)) {
                             request.grant(requestedResources);
                             // if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             //     a.runOnUiThread(new Runnable() {public void run() {
@@ -599,10 +628,11 @@ public class CWebViewPlugin extends Fragment {
                         mWebViewPlugin.call("CallOnHooked", url);
                         return true;
                     } else if (!url.toLowerCase().endsWith(".pdf")
-                        && (url.startsWith("http://")
-                            || url.startsWith("https://")
-                            || url.startsWith("file://")
-                            || url.startsWith("javascript:"))) {
+                               && !url.startsWith("https://maps.app.goo.gl")
+                               && (url.startsWith("http://")
+                                   || url.startsWith("https://")
+                                   || url.startsWith("file://")
+                                   || url.startsWith("javascript:"))) {
                         mWebViewPlugin.call("CallOnStarted", url);
                         // Let webview handle the URL
                         return false;
@@ -714,9 +744,18 @@ public class CWebViewPlugin extends Fragment {
                 } catch (java.lang.NoSuchMethodError err) {
                     h = display.getHeight();
                 }
-                int heightDiff = activityRootView.getRootView().getHeight() - (r.bottom - r.top);
-                //System.out.print(String.format("[NativeWebview] %d, %d\n", h, heightDiff));
-                if (heightDiff > h / 3) { // assume that this means that the keyboard is on
+
+                View rootView = activityRootView.getRootView();
+                int bottomPadding = 0;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+                    Point realSize = new Point();
+                    display.getRealSize(realSize); // this method was added at JELLY_BEAN_MR1
+                    int[] location = new int[2];
+                    rootView.getLocationOnScreen(location);
+                    bottomPadding = realSize.y - (location[1] + rootView.getHeight());
+                }
+                int heightDiff = rootView.getHeight() - (r.bottom - r.top);
+                if (heightDiff > 0 && (heightDiff + bottomPadding) > (h + bottomPadding) / 3) { // assume that this means that the keyboard is on
                     UnityPlayer.UnitySendMessage(gameObject, "SetKeyboardVisible", "true");
                 } else {
                     UnityPlayer.UnitySendMessage(gameObject, "SetKeyboardVisible", "false");
@@ -945,6 +984,20 @@ public class CWebViewPlugin extends Fragment {
         }});
     }
 
+    public void SetCameraAccess(final boolean allowed) {
+        final Activity a = UnityPlayer.currentActivity;
+        a.runOnUiThread(new Runnable() {public void run() {
+            mAllowVideoCapture = allowed;
+        }});
+    }
+
+    public void SetMicrophoneAccess(final boolean allowed) {
+        final Activity a = UnityPlayer.currentActivity;
+        a.runOnUiThread(new Runnable() {public void run() {
+            mAllowAudioCapture = allowed;
+        }});
+    }
+
     // cf. https://stackoverflow.com/questions/31788748/webview-youtube-videos-playing-in-background-on-rotation-and-minimise/31789193#31789193
     public void OnApplicationPause(boolean paused) {
         mPaused = paused;		
@@ -1113,6 +1166,17 @@ public class CWebViewPlugin extends Fragment {
                 return;
             }
             mWebView.clearCache(includeDiskFiles);
+        }});
+    }
+
+    public void SetTextZoom(final int textZoom)
+    {
+        final Activity a = UnityPlayer.currentActivity;
+        a.runOnUiThread(new Runnable() {public void run() {
+            if (mWebView == null) {
+                return;
+            }
+            mWebView.getSettings().setTextZoom(textZoom);
         }});
     }
 }
